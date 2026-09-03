@@ -315,6 +315,8 @@ CREATE TABLE IF NOT EXISTS qd_strategies_trading (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+ALTER TABLE qd_strategies_trading ADD COLUMN IF NOT EXISTS symbol_canonical VARCHAR(50) DEFAULT '';
+
 CREATE INDEX IF NOT EXISTS idx_strategies_user_id ON qd_strategies_trading(user_id);
 CREATE INDEX IF NOT EXISTS idx_strategies_status ON qd_strategies_trading(status);
 
@@ -336,6 +338,10 @@ CREATE TABLE IF NOT EXISTS qd_script_sources (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Upgrade path: older installs created qd_script_sources without asset_type.
+-- CREATE TABLE IF NOT EXISTS does not add columns to an existing table.
+ALTER TABLE qd_script_sources ADD COLUMN IF NOT EXISTS asset_type VARCHAR(32) NOT NULL DEFAULT 'script';
 
 CREATE INDEX IF NOT EXISTS idx_script_sources_user_id ON qd_script_sources(user_id);
 CREATE INDEX IF NOT EXISTS idx_script_sources_marketplace ON qd_script_sources(source_marketplace_indicator_id);
@@ -409,6 +415,8 @@ CREATE TABLE IF NOT EXISTS qd_strategy_positions (
     UNIQUE(strategy_id, symbol, side)
 );
 
+ALTER TABLE qd_strategy_positions ADD COLUMN IF NOT EXISTS strategy_run_id INTEGER DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS idx_positions_user_id ON qd_strategy_positions(user_id);
 CREATE INDEX IF NOT EXISTS idx_positions_strategy_id ON qd_strategy_positions(strategy_id);
 
@@ -442,6 +450,10 @@ CREATE TABLE IF NOT EXISTS qd_strategy_trades (
     order_intent_id INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE qd_strategy_trades ADD COLUMN IF NOT EXISTS strategy_run_id INTEGER DEFAULT 0;
+ALTER TABLE qd_strategy_trades ADD COLUMN IF NOT EXISTS order_intent_id INTEGER DEFAULT 0;
+ALTER TABLE qd_strategy_trades ADD COLUMN IF NOT EXISTS commission_quote DECIMAL(24,8);
 
 CREATE INDEX IF NOT EXISTS idx_trades_user_id ON qd_strategy_trades(user_id);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy_id ON qd_strategy_trades(strategy_id);
@@ -681,6 +693,13 @@ CREATE TABLE IF NOT EXISTS pending_orders (
     processed_at TIMESTAMP,
     sent_at TIMESTAMP
 );
+
+-- Upgrade path for queues created before run/intent/idempotency columns existed.
+ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS strategy_run_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS order_intent_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(180);
+ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS credential_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS inst_id VARCHAR(80) NOT NULL DEFAULT '';
 
 UPDATE pending_orders
 SET idempotency_key = 'pending-order-' || id::text
@@ -1391,6 +1410,11 @@ CREATE TABLE IF NOT EXISTS qd_backtest_runs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Upgrade path: v4 backtests used indicator_id / run_type instead of source_id.
+ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS source_id INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS market_type VARCHAR(20) NOT NULL DEFAULT 'spot';
+ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS params_json TEXT NOT NULL DEFAULT '{}';
+ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS manifest_json TEXT NOT NULL DEFAULT '{}';
 ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS total_return DOUBLE PRECISION;
 ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS win_rate DOUBLE PRECISION;
 ALTER TABLE qd_backtest_runs ADD COLUMN IF NOT EXISTS total_trades INTEGER;
@@ -2092,6 +2116,12 @@ CREATE TABLE IF NOT EXISTS strategy_order_intents (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(strategy_run_id, idempotency_key)
 );
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS portfolio_id VARCHAR(96) NOT NULL DEFAULT '';
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS universe_id VARCHAR(96) NOT NULL DEFAULT '';
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS rebalance_group_id VARCHAR(128) NOT NULL DEFAULT '';
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS target_weight DECIMAL(18, 10);
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS target_notional DECIMAL(28, 12);
+ALTER TABLE strategy_order_intents ADD COLUMN IF NOT EXISTS target_position_qty DECIMAL(28, 12);
 CREATE INDEX IF NOT EXISTS idx_strategy_order_intents_strategy ON strategy_order_intents(strategy_id, status);
 
 CREATE TABLE IF NOT EXISTS strategy_order_fills (
@@ -2376,6 +2406,17 @@ CREATE TABLE IF NOT EXISTS qd_indicator_purchases (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(indicator_id, buyer_id)
 );
+
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS gross_price DECIMAL(10,2);
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS platform_fee DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS seller_amount DECIMAL(10,2);
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS fee_rate DECIMAL(10,6) DEFAULT 0;
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_name_snapshot VARCHAR(255);
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_description_snapshot TEXT;
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_code_snapshot TEXT;
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_type_snapshot VARCHAR(32);
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_preview_image_snapshot VARCHAR(500);
+ALTER TABLE qd_indicator_purchases ADD COLUMN IF NOT EXISTS asset_is_encrypted_snapshot INTEGER DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_purchases_indicator ON qd_indicator_purchases(indicator_id);
 CREATE INDEX IF NOT EXISTS idx_purchases_buyer ON qd_indicator_purchases(buyer_id);
