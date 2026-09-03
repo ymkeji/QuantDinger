@@ -409,8 +409,13 @@ def place_grid_limit_order(
             symbol=str(symbol), side=sd, size=qty, price=px, client_order_id=coid or None
         )
     if isinstance(client, GateUsdtFuturesClient):
+        mm = str(margin_mode or ex_cfg.get("margin_mode") or ex_cfg.get("marginMode") or "cross")
         try:
-            client.set_leverage(contract=to_gate_currency_pair(str(symbol)), leverage=float(leverage or 1))
+            client.set_leverage(
+                contract=to_gate_currency_pair(str(symbol)),
+                leverage=float(leverage or 1),
+                margin_mode=mm,
+            )
         except Exception:
             pass
         return client.place_limit_order(

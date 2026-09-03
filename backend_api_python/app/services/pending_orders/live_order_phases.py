@@ -140,8 +140,19 @@ def place_live_limit_order(
     if isinstance(client, GateSpotClient):
         return client.place_limit_order(symbol=str(symbol), side=side, size=amount, price=price, client_order_id=client_order_id)
     if isinstance(client, GateUsdtFuturesClient):
+        margin_mode = str(
+            payload.get("margin_mode")
+            or payload.get("marginMode")
+            or exchange_config.get("margin_mode")
+            or exchange_config.get("marginMode")
+            or "cross"
+        )
         try:
-            client.set_leverage(contract=to_gate_currency_pair(str(symbol)), leverage=leverage)
+            client.set_leverage(
+                contract=to_gate_currency_pair(str(symbol)),
+                leverage=leverage,
+                margin_mode=margin_mode,
+            )
         except Exception:
             pass
         return client.place_limit_order(
@@ -379,8 +390,19 @@ def place_live_market_order(
             mkt_size = amount * ref_price
         return client.place_market_order(symbol=str(symbol), side=side, size=mkt_size, client_order_id=client_order_id)
     if isinstance(client, GateUsdtFuturesClient):
+        margin_mode = str(
+            payload.get("margin_mode")
+            or payload.get("marginMode")
+            or exchange_config.get("margin_mode")
+            or exchange_config.get("marginMode")
+            or "cross"
+        )
         try:
-            client.set_leverage(contract=to_gate_currency_pair(str(symbol)), leverage=leverage)
+            client.set_leverage(
+                contract=to_gate_currency_pair(str(symbol)),
+                leverage=leverage,
+                margin_mode=margin_mode,
+            )
         except Exception:
             pass
         return client.place_market_order(
