@@ -704,6 +704,24 @@ ALTER TABLE pending_orders ADD COLUMN IF NOT EXISTS inst_id VARCHAR(80) NOT NULL
 UPDATE pending_orders
 SET idempotency_key = 'pending-order-' || id::text
 WHERE idempotency_key IS NULL OR idempotency_key = '';
+
+-- Older runtimes could enqueue the same logical key more than once.
+-- Keep the earliest row's original key; rewrite later duplicates before UNIQUE.
+WITH ranked AS (
+  SELECT id,
+         ROW_NUMBER() OVER (
+           PARTITION BY idempotency_key
+           ORDER BY id ASC
+         ) AS rn
+  FROM pending_orders
+  WHERE idempotency_key IS NOT NULL AND idempotency_key <> ''
+)
+UPDATE pending_orders AS po
+SET idempotency_key = left(po.idempotency_key, 160) || ':dup:' || po.id::text
+FROM ranked
+WHERE po.id = ranked.id
+  AND ranked.rn > 1;
+
 ALTER TABLE pending_orders ALTER COLUMN idempotency_key SET NOT NULL;
 ALTER TABLE pending_orders ALTER COLUMN idempotency_key DROP DEFAULT;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_orders_idempotency_key ON pending_orders(idempotency_key);
